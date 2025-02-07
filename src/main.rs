@@ -1,14 +1,12 @@
-use anyhow::anyhow;
-use converter::{
-    format::ConverterFormat, input::ConverterInput, output::ConverterOutput, Converter,
-};
 use env_logger::Env;
+use http::start_http;
 use log::info;
-use tokio::fs;
+use tokio::{fs, task};
+use ws::start_ws;
 
 mod converter;
-
-const FILENAME: &str = "input.mp4";
+mod http;
+mod ws;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -23,19 +21,14 @@ async fn main() -> anyhow::Result<()> {
     fs::create_dir("input").await?;
     fs::create_dir("output").await?;
 
-    let bytes = fs::read(FILENAME).await?;
+    // start ws and http server on separate threads
+    let ws_thread = task::spawn(start_ws());
+    let http_thread = task::spawn(start_http());
 
-    let input = ConverterInput::new(
-        ConverterFormat::from_str(FILENAME)
-            .ok_or_else(|| anyhow!("failed to convert filename to string"))?,
-        bytes,
-    );
-    let output = ConverterOutput::new(ConverterFormat::WebM);
-
-    let converter = Converter::new(input, output);
-    let (job, mut channel) = converter.convert().await?;
-    while let Some(progress) = channel.recv().await {
-        info!("progress: {:?}", progress);
-    }
+    // everything runs on diff threads -- http server, ws server and conversion
+    // this allows for max speed!!! rocket emoji
+    let r = tokio::try_join!(ws_thread, http_thread)?;
+    r.0?;
+    r.1?;
     Ok(())
 }

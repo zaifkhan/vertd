@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 
-use super::{input::ConverterInput, output::ConverterOutput};
+use super::{input::ConverterInput, output::ConverterOutput, speed::ConversionSpeed};
 
 lazy_static! {
     static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
@@ -33,9 +33,8 @@ impl ConverterFormat {
         FORMATS.iter().find(|(_, v)| **v == *self).unwrap().0
     }
 
-    pub fn conversion_into_args(&self) -> Vec<String> {
-        // &["-f", self.to_str().to_string().as_str()]
-        vec!["-f".to_string(), self.to_str().to_string()]
+    pub fn conversion_into_args(&self, speed: &ConversionSpeed) -> Vec<String> {
+        speed.to_args(self)
     }
 }
 
@@ -52,22 +51,8 @@ impl Conversion {
         }
     }
 
-    pub fn to_args(&self) -> Vec<String> {
+    pub fn to_args(&self, speed: &ConversionSpeed) -> Vec<String> {
         let conversion_opts: &[&str] = match self.to.format {
-            // ConverterFormat::MP4 | ConverterFormat::MKV => &[
-            //     "-c:v",
-            //     "libx264",
-            //     "-c:a",
-            //     "aac",
-            //     "-strict",
-            //     "experimental",
-            //     "-preset",
-            //     "ultrafast",
-            // ],
-            // ConverterFormat::WebM => &["-c:v", "libvpx", "-c:a", "libvorbis", "-speed", "4"],
-            // ConverterFormat::AVI => &["-c:v", "mpeg4", "-c:a", "libmp3lame", "-speed", "4"],
-
-            // the above but optimized for gpu acceleration
             ConverterFormat::MP4 | ConverterFormat::MKV => &[
                 "-c:v",
                 "h264_nvenc",
@@ -75,12 +60,11 @@ impl Conversion {
                 "aac",
                 "-strict",
                 "experimental",
-                "-preset",
-                "ultrafast",
             ],
 
-            ConverterFormat::WebM => &["-c:v", "libvpx", "-c:a", "libvorbis", "-speed", "4"],
-            ConverterFormat::AVI => &["-c:v", "mpeg4", "-c:a", "libmp3lame", "-speed", "4"],
+            // TODO: add support for VP9
+            ConverterFormat::WebM => &["-c:v", "libvpx", "-c:a", "libvorbis"],
+            ConverterFormat::AVI => &["-c:v", "mpeg4", "-c:a", "libmp3lame"],
         };
 
         let conversion_opts = conversion_opts
@@ -88,6 +72,6 @@ impl Conversion {
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
-        [conversion_opts, self.to.format.conversion_into_args()].concat()
+        [conversion_opts, self.to.format.conversion_into_args(speed)].concat()
     }
 }

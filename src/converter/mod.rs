@@ -4,8 +4,8 @@ use anyhow::anyhow;
 use format::Conversion;
 use input::ConverterInput;
 use job::{Job, ProgressUpdate};
-use log::warn;
 use output::ConverterOutput;
+use speed::ConversionSpeed;
 use tokio::io::AsyncBufReadExt as _;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -15,15 +15,18 @@ pub mod format;
 pub mod input;
 pub mod job;
 pub mod output;
+pub mod speed;
 
 pub struct Converter {
     pub conversion: Conversion,
+    speed: ConversionSpeed,
 }
 
 impl Converter {
-    pub fn new(input: ConverterInput, output: ConverterOutput) -> Self {
+    pub fn new(input: ConverterInput, output: ConverterOutput, speed: ConversionSpeed) -> Self {
         Self {
             conversion: Conversion::new(input, output),
+            speed,
         }
     }
 
@@ -35,7 +38,7 @@ impl Converter {
         fs::write(&input_filename, &self.conversion.from.bytes).await?;
         let output_filename = format!("output/{}.{}", job.id, self.conversion.to.format.to_str());
 
-        let args = self.conversion.to.format.conversion_into_args();
+        let args = self.conversion.to_args(&self.speed);
         let args = args.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         let args = args.as_slice();
 

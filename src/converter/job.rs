@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-use log::{error, warn};
 use uuid::Uuid;
 
 pub struct Job {
