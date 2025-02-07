@@ -1,16 +1,11 @@
-use std::{fs, path::Path};
+use super::format::ConverterFormat;
 
-pub trait ConverterOutput: Sized {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>>;
+pub struct ConverterOutput {
+    pub format: ConverterFormat,
 }
 
-impl<T> ConverterOutput for T
-where
-    T: Into<String> + AsRef<Path>,
-{
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let path = self.as_ref();
-        let bytes = fs::read(path)?;
-        Ok(bytes)
+impl ConverterOutput {
+    pub fn new(format: ConverterFormat) -> Self {
+        Self { format }
     }
 }

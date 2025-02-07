@@ -1,25 +1,12 @@
-use std::{fs, path::Path};
+use super::format::ConverterFormat;
 
-pub trait ConverterInput: Sized {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>>;
+pub struct ConverterInput {
+    pub format: ConverterFormat,
+    pub bytes: Vec<u8>,
 }
 
-impl ConverterInput for String {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let bytes = fs::read(self)?;
-        Ok(bytes)
-    }
-}
-
-impl ConverterInput for &str {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        let bytes = fs::read(self)?;
-        Ok(bytes)
-    }
-}
-
-impl ConverterInput for Vec<u8> {
-    fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(self.clone())
+impl ConverterInput {
+    pub fn new(format: ConverterFormat, bytes: Vec<u8>) -> Self {
+        Self { format, bytes }
     }
 }

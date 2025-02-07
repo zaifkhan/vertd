@@ -1,1 +1,6 @@
 /target
+/output
+/input
+ffmpeg.exe
+ffmpeg
+input.mp4
