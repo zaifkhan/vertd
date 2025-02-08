@@ -67,6 +67,14 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         let job = app_state.jobs.get_mut(&job_id);
                         let clone = job.as_ref().map(|j| (*j).clone());
                         if let Some(job) = job {
+                            if job.completed {
+                                let message: String = Message::Error {
+                                    message: "job already completed".to_string(),
+                                }
+                                .into();
+                                session.text(message).await.unwrap();
+                                continue;
+                            }
                             job.to = Some(to.clone());
                         }
                         clone
@@ -127,6 +135,12 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
 
                     let message: String = Message::JobFinished { job_id }.into();
                     session.text(message).await.unwrap();
+
+                    let mut app_state = APP_STATE.lock().await;
+                    if let Some(job) = app_state.jobs.get_mut(&job_id) {
+                        job.completed = true;
+                    }
+                    drop(app_state);
 
                     tokio::spawn(async move {
                         tokio::time::sleep(OUTPUT_LIFETIME).await;

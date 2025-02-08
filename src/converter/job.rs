@@ -7,6 +7,7 @@ pub struct Job {
     pub auth: String,
     pub from: String,
     pub to: Option<String>,
+    pub completed: bool,
 }
 
 impl Job {
@@ -16,6 +17,7 @@ impl Job {
             auth: auth_token,
             from,
             to: None,
+            completed: false,
         }
     }
 }
