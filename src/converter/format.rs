@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use super::{input::ConverterInput, output::ConverterOutput, speed::ConversionSpeed};
 
 lazy_static! {
-    static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
+    pub static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
         let mut map = HashMap::new();
         map.insert("mp4", ConverterFormat::MP4);
         map.insert("webm", ConverterFormat::WebM);

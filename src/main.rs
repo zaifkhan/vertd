@@ -1,12 +1,16 @@
+mod converter;
+mod http;
+mod state;
+
+use std::time::Duration;
+
 use env_logger::Env;
 use http::start_http;
 use log::info;
-use tokio::{fs, task};
-use ws::start_ws;
+use tokio::fs;
 
-mod converter;
-mod http;
-mod ws;
+pub const INPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
+pub const OUTPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,14 +25,6 @@ async fn main() -> anyhow::Result<()> {
     fs::create_dir("input").await?;
     fs::create_dir("output").await?;
 
-    // start ws and http server on separate threads
-    let ws_thread = task::spawn(start_ws());
-    let http_thread = task::spawn(start_http());
-
-    // everything runs on diff threads -- http server, ws server and conversion
-    // this allows for max speed!!! rocket emoji
-    let r = tokio::try_join!(ws_thread, http_thread)?;
-    r.0?;
-    r.1?;
+    start_http().await?;
     Ok(())
 }
