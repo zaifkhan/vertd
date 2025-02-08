@@ -1,6 +1,5 @@
 // get /download/{id} where id is Uuid
 
-use actix_files::NamedFile;
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder, ResponseError};
 use tokio::fs;
 use uuid::Uuid;
