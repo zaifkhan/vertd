@@ -1,20 +1,16 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use format::Conversion;
-use input::ConverterInput;
+use format::{Conversion, ConverterFormat};
 use job::{Job, ProgressUpdate};
-use output::ConverterOutput;
 use speed::ConversionSpeed;
 use tokio::io::AsyncBufReadExt as _;
+use tokio::io::BufReader;
 use tokio::process::Command;
 use tokio::sync::mpsc;
-use tokio::{fs, io::BufReader};
 
 pub mod format;
-pub mod input;
 pub mod job;
-pub mod output;
 pub mod speed;
 
 pub struct Converter {
@@ -23,20 +19,17 @@ pub struct Converter {
 }
 
 impl Converter {
-    pub fn new(input: ConverterInput, output: ConverterOutput, speed: ConversionSpeed) -> Self {
+    pub fn new(from: ConverterFormat, to: ConverterFormat, speed: ConversionSpeed) -> Self {
         Self {
-            conversion: Conversion::new(input, output),
+            conversion: Conversion::new(from, to),
             speed,
         }
     }
 
-    pub async fn convert(&self, job: Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
+    pub async fn convert(&self, job: &Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
         let (tx, rx) = mpsc::channel(1);
-
-        let input_filename = format!("input/{}.{}", job.id, self.conversion.from.format.to_str());
-        fs::write(&input_filename, &self.conversion.from.bytes).await?;
-        let output_filename = format!("output/{}.{}", job.id, self.conversion.to.format.to_str());
-
+        let input_filename = format!("input/{}.{}", job.id, self.conversion.from.to_str());
+        let output_filename = format!("output/{}.{}", job.id, self.conversion.to.to_str());
         let args = self.conversion.to_args(&self.speed);
         let args = args.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         let args = args.as_slice();
@@ -95,10 +88,6 @@ impl Converter {
                 if let Some(fps) = map.get("fps").and_then(|s| s.parse().ok()) {
                     reports.push(ProgressUpdate::FPS(fps));
                 }
-
-                // if tx.send(progress).await.is_err() {
-                //     break;
-                // }
 
                 for report in reports {
                     if tx.send(report).await.is_err() {

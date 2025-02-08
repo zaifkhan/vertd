@@ -1,15 +1,13 @@
 use actix_web::{get, rt, web, Error, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
+use log::error;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use uuid::Uuid;
 
 use crate::{
-    converter::{
-        format::ConverterFormat, input::ConverterInput, job::ProgressUpdate,
-        output::ConverterOutput, speed::ConversionSpeed, Converter,
-    },
+    converter::{format::ConverterFormat, job::ProgressUpdate, speed::ConversionSpeed, Converter},
     state::APP_STATE,
     OUTPUT_LIFETIME,
 };
@@ -90,32 +88,6 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         continue;
                     }
 
-                    let path = format!("input/{}.{}", job.id, job.from);
-
-                    let bytes = match fs::read(&path).await {
-                        Ok(bytes) => bytes,
-                        Err(e) => {
-                            let message: String = Message::Error {
-                                message: format!("failed to read input file: {}", e),
-                            }
-                            .into();
-                            session.text(message).await.unwrap();
-                            continue;
-                        }
-                    };
-
-                    match fs::remove_file(&path).await {
-                        Ok(_) => {}
-                        Err(e) => {
-                            let message: String = Message::Error {
-                                message: format!("failed to remove input file: {}", e),
-                            }
-                            .into();
-                            session.text(message).await.unwrap();
-                            continue;
-                        }
-                    };
-
                     let Some(from) = ConverterFormat::from_str(job.from.as_str()) else {
                         let message: String = Message::Error {
                             message: "invalid input format".to_string(),
@@ -134,13 +106,9 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         continue;
                     };
 
-                    let converter = Converter::new(
-                        ConverterInput::new(from, bytes),
-                        ConverterOutput::new(to),
-                        ConversionSpeed::Medium,
-                    );
+                    let converter = Converter::new(from, to, ConversionSpeed::Medium);
 
-                    let mut rx = match converter.convert(job).await {
+                    let mut rx = match converter.convert(&job).await {
                         Ok(rx) => rx,
                         Err(e) => {
                             let message: String = Message::Error {
@@ -173,6 +141,19 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                             }
                         }
                     });
+
+                    match fs::remove_file(&format!("input/{}.{}", job.id, job.from)).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("failed to remove input file: {}", e);
+                            let message: String = Message::Error {
+                                message: format!("failed to remove input file: {}", e),
+                            }
+                            .into();
+                            session.text(message).await.unwrap();
+                            continue;
+                        }
+                    };
                 }
 
                 _ => {}

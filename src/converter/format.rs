@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 
-use super::{input::ConverterInput, output::ConverterOutput, speed::ConversionSpeed};
+use super::speed::ConversionSpeed;
 
 lazy_static! {
     pub static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
@@ -39,20 +39,17 @@ impl ConverterFormat {
 }
 
 pub struct Conversion {
-    pub from: ConverterInput,
-    pub to: ConverterOutput,
+    pub from: ConverterFormat,
+    pub to: ConverterFormat,
 }
 
 impl Conversion {
-    pub fn new(input: ConverterInput, output: ConverterOutput) -> Self {
-        Self {
-            from: input,
-            to: output,
-        }
+    pub fn new(from: ConverterFormat, to: ConverterFormat) -> Self {
+        Self { from, to }
     }
 
     pub fn to_args(&self, speed: &ConversionSpeed) -> Vec<String> {
-        let conversion_opts: &[&str] = match self.to.format {
+        let conversion_opts: &[&str] = match self.to {
             ConverterFormat::MP4 | ConverterFormat::MKV => &[
                 "-c:v",
                 "h264_nvenc",
@@ -72,6 +69,6 @@ impl Conversion {
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
-        [conversion_opts, self.to.format.conversion_into_args(speed)].concat()
+        [conversion_opts, self.to.conversion_into_args(speed)].concat()
     }
 }
