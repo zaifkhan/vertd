@@ -2,7 +2,7 @@ mod converter;
 mod http;
 mod state;
 
-use std::time::Duration;
+use std::{process::exit, time::Duration};
 
 use env_logger::Env;
 use http::start_http;
@@ -12,10 +12,36 @@ use tokio::fs;
 pub const INPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
 pub const OUTPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
 
+async fn ffmpeg_version() -> anyhow::Result<String> {
+    let output = tokio::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .await?;
+    let version = String::from_utf8(output.stdout)?;
+    // from "ffmpeg version 7.1 .... .. .. . ." get "7.1"
+    let version = version.split_whitespace().nth(2).ok_or_else(|| {
+        anyhow::anyhow!(
+            "failed to get version from output (this is a bug in vertd! please report!)"
+        )
+    })?;
+
+    Ok(version.to_string())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("vertd")).init();
     info!("starting vertd");
+
+    let version = match ffmpeg_version().await {
+        Ok(version) => version,
+        Err(e) => {
+            log::error!("failed to get ffmpeg version -- vertd requires ffmpeg to be set up on the path or next to the executable ({})", e);
+            exit(1);
+        }
+    };
+
+    info!("working w/ ffmpeg {}", version);
 
     // remove input/ and output/ recursively if they exist -- we don't care if this fails tho
     let _ = fs::remove_dir_all("input").await;
