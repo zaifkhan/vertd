@@ -25,6 +25,8 @@ pub enum UploadError {
     GetChunk(#[from] actix_web::Error),
     #[error("internal server error while writing file")]
     WriteFile(#[from] std::io::Error),
+    #[error("ffprobe failed to read file")]
+    ParseFile,
 }
 
 impl ResponseError for UploadError {
@@ -107,6 +109,10 @@ pub async fn upload(mut payload: Multipart) -> Result<impl Responder, UploadErro
         });
         break;
     }
-    let job = job.ok_or_else(|| UploadError::NoFile)?;
+    let mut job = job.ok_or_else(|| UploadError::NoFile)?;
+    job.total_frames()
+        .await
+        .ok()
+        .ok_or_else(|| UploadError::ParseFile)?;
     Ok(ApiResponse::Success(job))
 }

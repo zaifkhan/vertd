@@ -12,8 +12,17 @@ use tokio::fs;
 pub const INPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
 pub const OUTPUT_LIFETIME: Duration = Duration::from_secs(60 * 60);
 
-async fn ffmpeg_version() -> anyhow::Result<String> {
-    let output = tokio::process::Command::new("ffmpeg")
+enum FFUtil {
+    FFmpeg,
+    FFprobe,
+}
+
+async fn ffutil_version(util: FFUtil) -> anyhow::Result<String> {
+    let program = match util {
+        FFUtil::FFmpeg => "ffmpeg",
+        FFUtil::FFprobe => "ffprobe",
+    };
+    let output = tokio::process::Command::new(program)
         .arg("-version")
         .output()
         .await?;
@@ -33,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("vertd")).init();
     info!("starting vertd");
 
-    let version = match ffmpeg_version().await {
+    let ffmpeg_version = match ffutil_version(FFUtil::FFmpeg).await {
         Ok(version) => version,
         Err(e) => {
             log::error!("failed to get ffmpeg version -- vertd requires ffmpeg to be set up on the path or next to the executable ({})", e);
@@ -41,7 +50,18 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    info!("working w/ ffmpeg {}", version);
+    let ffprobe_version = match ffutil_version(FFUtil::FFprobe).await {
+        Ok(version) => version,
+        Err(e) => {
+            log::error!("failed to get ffprobe version -- vertd requires ffprobe to be set up on the path or next to the executable ({})", e);
+            exit(1);
+        }
+    };
+
+    info!(
+        "working w/ ffmpeg {} and ffprobe {}",
+        ffmpeg_version, ffprobe_version
+    );
 
     // remove input/ and output/ recursively if they exist -- we don't care if this fails tho
     let _ = fs::remove_dir_all("input").await;

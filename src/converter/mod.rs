@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use format::{Conversion, ConverterFormat};
 use job::{Job, ProgressUpdate};
+use log::info;
 use speed::ConversionSpeed;
 use tokio::io::AsyncBufReadExt as _;
 use tokio::io::BufReader;

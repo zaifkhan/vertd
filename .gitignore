@@ -3,4 +3,6 @@
 /input
 ffmpeg.exe
 ffmpeg
+ffprobe.exe
+ffprobe
 input.mp4
