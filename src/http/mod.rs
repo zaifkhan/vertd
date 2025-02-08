@@ -23,7 +23,7 @@ pub async fn start_http() -> anyhow::Result<()> {
                     .service(websocket),
             )
     });
-    info!("http server listening on 0.0.0.0:8080");
-    server.bind("0.0.0.0:8080")?.run().await?;
+    info!("http server listening on 0.0.0.0:24153");
+    server.bind("0.0.0.0:24153")?.run().await?;
     Ok(())
 }
