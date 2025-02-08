@@ -51,6 +51,10 @@ pub async fn download(path: web::Path<(Uuid, String)>) -> Result<impl Responder,
         None => return Err(DownloadError::IncompleteHandshake),
     };
 
+    let mut app_state = APP_STATE.lock().await;
+    app_state.jobs.remove(&id);
+    drop(app_state);
+
     let bytes = fs::read(&file_path).await.map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             DownloadError::JobNotFound
@@ -59,9 +63,15 @@ pub async fn download(path: web::Path<(Uuid, String)>) -> Result<impl Responder,
         }
     })?;
 
+    let mime = mime_guess::from_path(&file_path)
+        .first_or_octet_stream()
+        .to_string();
+
     fs::remove_file(file_path)
         .await
         .map_err(|e| DownloadError::FilesystemError(e))?;
 
-    Ok(HttpResponse::Ok().body(bytes))
+    Ok(HttpResponse::Ok()
+        .insert_header(("Content-Type", mime))
+        .body(bytes))
 }

@@ -30,7 +30,7 @@ impl Converter {
         }
     }
 
-    pub async fn convert(&self, job: Job) -> anyhow::Result<(Job, mpsc::Receiver<ProgressUpdate>)> {
+    pub async fn convert(&self, job: Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
         let (tx, rx) = mpsc::channel(1);
 
         let input_filename = format!("input/{}.{}", job.id, self.conversion.from.format.to_str());
@@ -108,6 +108,6 @@ impl Converter {
             }
         });
 
-        Ok((job, rx))
+        Ok(rx)
     }
 }

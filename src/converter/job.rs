@@ -20,8 +20,11 @@ impl Job {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum ProgressUpdate {
+    #[serde(rename = "frame", rename_all = "camelCase")]
     Frame(u64),
+    #[serde(rename = "fps", rename_all = "camelCase")]
     FPS(f64),
 }
