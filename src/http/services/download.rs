@@ -9,33 +9,36 @@ use crate::{http::response::ApiResponse, state::APP_STATE};
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
     #[error("job not found")]
-    NotFound,
+    JobNotFound,
+    #[error("incomplete websocket handshake")]
+    IncompleteHandshake,
     #[error("invalid token")]
     InvalidToken,
+    #[error("filesystem error: {0}")]
+    FilesystemError(#[from] std::io::Error),
 }
 
 impl ResponseError for DownloadError {
     fn error_response(&self) -> HttpResponse {
         let status = match self {
-            DownloadError::NotFound => actix_web::http::StatusCode::NOT_FOUND,
+            DownloadError::JobNotFound => actix_web::http::StatusCode::NOT_FOUND,
+            DownloadError::IncompleteHandshake => actix_web::http::StatusCode::BAD_REQUEST,
             DownloadError::InvalidToken => actix_web::http::StatusCode::UNAUTHORIZED,
+            DownloadError::FilesystemError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         HttpResponse::build(status).json(ApiResponse::<()>::Error(self.to_string()))
     }
 }
 
-#[get("/download/{id}?token={token}")]
-pub async fn download(
-    req: HttpRequest,
-    path: web::Path<(Uuid, String)>,
-) -> Result<impl Responder, DownloadError> {
+#[get("/download/{id}/{token}")]
+pub async fn download(path: web::Path<(Uuid, String)>) -> Result<impl Responder, DownloadError> {
     let (id, token) = path.into_inner();
     let app_state = APP_STATE.lock().await;
     let job = app_state
         .jobs
         .get(&id)
-        .ok_or(DownloadError::NotFound)?
+        .ok_or(DownloadError::JobNotFound)?
         .clone();
     drop(app_state);
 
@@ -45,16 +48,20 @@ pub async fn download(
 
     let file_path = match job.to {
         Some(to) => format!("output/{}.{}", id, to),
-        None => return Err(DownloadError::NotFound),
+        None => return Err(DownloadError::IncompleteHandshake),
     };
 
-    let bytes = fs::read(&file_path)
-        .await
-        .map_err(|_| DownloadError::NotFound)?;
+    let bytes = fs::read(&file_path).await.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            DownloadError::JobNotFound
+        } else {
+            DownloadError::FilesystemError(e)
+        }
+    })?;
 
     fs::remove_file(file_path)
         .await
-        .map_err(|_| DownloadError::NotFound)?;
+        .map_err(|e| DownloadError::FilesystemError(e))?;
 
     Ok(HttpResponse::Ok().body(bytes))
 }
