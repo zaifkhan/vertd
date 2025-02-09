@@ -35,18 +35,23 @@ impl Converter {
         let args = args.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         let args = args.as_slice();
 
+        let gpu_args: &[&str] = match gpu::get_gpu().await {
+            Ok(g) => match g {
+                gpu::ConverterGPU::AMD => &["-hwaccel", "d3d11va"],
+                gpu::ConverterGPU::Intel => &["-hwaccel", "qsv"],
+                gpu::ConverterGPU::NVIDIA => &["-hwaccel", "cuda"],
+                gpu::ConverterGPU::Apple => &["-hwaccel", "videotoolbox"],
+            },
+            Err(e) => {
+                log::warn!("failed to get GPU: {}", e);
+                &[]
+            }
+        };
+
         let command = &[
-            &[
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-progress",
-                "pipe:1",
-                "-hwaccel",
-                "cuda",
-                "-i",
-                &input_filename,
-            ],
+            &["-hide_banner", "-loglevel", "error", "-progress", "pipe:1"],
+            gpu_args,
+            &["-i", &input_filename],
             args,
             &[&output_filename],
         ]
