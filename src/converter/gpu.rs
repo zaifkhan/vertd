@@ -32,11 +32,14 @@ pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
         .ok_or_else(|| anyhow!("no compatible adapter found"))?;
 
     let info = adapter.get_info();
+    if info.name.contains("Apple") {
+        return Ok(ConverterGPU::Apple);
+    }
     match info.vendor {
         0x10DE => Ok(ConverterGPU::NVIDIA),
         0x1022 => Ok(ConverterGPU::AMD),
         0x8086 => Ok(ConverterGPU::Intel), // fun fact: intel's vendor id is 0x8086, presumably in reference to the intel 8086 processor
-        0x106B => Ok(ConverterGPU::Apple),
+        0x106B | 0x0 => Ok(ConverterGPU::Apple),
         _ => Err(anyhow!("unknown GPU vendor: 0x{:X}", info.vendor)),
     }
 }
