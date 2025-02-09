@@ -20,6 +20,7 @@ pub enum Message {
         token: String,
         job_id: Uuid,
         to: String,
+        speed: ConversionSpeed,
     },
 
     #[serde(rename = "jobFinished", rename_all = "camelCase")]
@@ -61,7 +62,12 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
             };
 
             match message {
-                Message::StartJob { token, job_id, to } => {
+                Message::StartJob {
+                    token,
+                    job_id,
+                    to,
+                    speed,
+                } => {
                     let Some(job) = ({
                         let mut app_state = APP_STATE.lock().await;
                         let job = app_state.jobs.get_mut(&job_id);
@@ -114,7 +120,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         continue;
                     };
 
-                    let converter = Converter::new(from, to, ConversionSpeed::Medium);
+                    let converter = Converter::new(from, to, speed);
 
                     let mut rx = match converter.convert(&job).await {
                         Ok(rx) => rx,

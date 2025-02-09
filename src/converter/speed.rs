@@ -1,5 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use super::format::ConverterFormat;
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ConversionSpeed {
     UltraFast,
     Fast,
