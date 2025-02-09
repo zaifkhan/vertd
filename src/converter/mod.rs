@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use format::{Conversion, ConverterFormat};
 use job::{Job, ProgressUpdate};
-use log::info;
 use speed::ConversionSpeed;
 use tokio::io::AsyncBufReadExt as _;
 use tokio::io::BufReader;
@@ -11,6 +10,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 
 pub mod format;
+pub mod gpu;
 pub mod job;
 pub mod speed;
 

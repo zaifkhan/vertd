@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use log::info;
-use services::{download::download, upload::upload, websocket::websocket};
+use services::{download::download, upload::upload, version::version, websocket::websocket};
 
 mod response;
 mod services;
@@ -20,7 +20,8 @@ pub async fn start_http() -> anyhow::Result<()> {
                     .service(upload)
                     .service(download)
                     // .route("/ws", web::get().to(websocket)),
-                    .service(websocket),
+                    .service(websocket)
+                    .service(version),
             )
     });
     info!("http server listening on 0.0.0.0:24153");
