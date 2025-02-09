@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use futures_util::TryFutureExt;
 use lazy_static::lazy_static;
 
 use super::{gpu::ConverterGPU, speed::ConversionSpeed};
@@ -12,6 +11,8 @@ lazy_static! {
         map.insert("webm", ConverterFormat::WebM);
         map.insert("avi", ConverterFormat::AVI);
         map.insert("mkv", ConverterFormat::MKV);
+        map.insert("wmv", ConverterFormat::WMV);
+        map.insert("mov", ConverterFormat::MOV);
         map
     };
 }
@@ -22,6 +23,8 @@ pub enum ConverterFormat {
     WebM,
     AVI,
     MKV,
+    WMV,
+    MOV,
 }
 
 impl ConverterFormat {
@@ -77,7 +80,7 @@ impl Conversion {
         bitrate: u64,
     ) -> anyhow::Result<Vec<String>> {
         let conversion_opts: Vec<String> = match self.to {
-            ConverterFormat::MP4 | ConverterFormat::MKV => {
+            ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
                 let encoder = self
                     .accelerated_or_default_codec(gpu, &["h264"], "libx264")
                     .await;
@@ -88,6 +91,17 @@ impl Conversion {
                     "aac".to_string(),
                     "-strict".to_string(),
                     "experimental".to_string(),
+                ]
+            }
+            ConverterFormat::WMV => {
+                let encoder = self
+                    .accelerated_or_default_codec(gpu, &["wmv2", "wmv3"], "wmv2")
+                    .await;
+                vec![
+                    "-c:v".to_string(),
+                    encoder,
+                    "-c:a".to_string(),
+                    "wmav2".to_string(),
                 ]
             }
             ConverterFormat::WebM => {

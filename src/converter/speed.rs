@@ -1,3 +1,4 @@
+use log::warn;
 use serde::{Deserialize, Serialize};
 
 use super::{format::ConverterFormat, gpu::ConverterGPU};
@@ -34,7 +35,7 @@ impl ConversionSpeed {
         let mut args = Vec::new();
 
         match to {
-            ConverterFormat::MP4 | ConverterFormat::MKV => {
+            ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
                 args.push("-preset".to_string());
                 match gpu {
                     Some(ConverterGPU::NVIDIA) => match self {
@@ -71,6 +72,10 @@ impl ConversionSpeed {
                     ConversionSpeed::Slower => args.push("0".to_string()),
                     ConversionSpeed::VerySlow => args.push("-1".to_string()),
                 };
+            }
+
+            ConverterFormat::WMV => {
+                warn!("wmv format does not support speed settings");
             }
         };
 
