@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use uuid::Uuid;
 
-const DEFAULT_BITRATE: u64 = 7 * 1_000_000;
-const BITRATE_MULTIPLIER: f64 = 1.5;
+const DEFAULT_BITRATE: u64 = 4 * 1_000_000;
+const BITRATE_MULTIPLIER: f64 = 2.5;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
