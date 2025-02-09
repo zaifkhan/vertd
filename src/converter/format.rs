@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use futures_util::TryFutureExt;
 use lazy_static::lazy_static;
 
-use super::speed::ConversionSpeed;
+use super::{gpu::ConverterGPU, speed::ConversionSpeed};
 
 lazy_static! {
     pub static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
@@ -33,8 +34,13 @@ impl ConverterFormat {
         FORMATS.iter().find(|(_, v)| **v == *self).unwrap().0
     }
 
-    pub fn conversion_into_args(&self, speed: &ConversionSpeed) -> Vec<String> {
-        speed.to_args(self)
+    pub fn conversion_into_args(
+        &self,
+        speed: &ConversionSpeed,
+        gpu: Option<&ConverterGPU>,
+        bitrate: u64,
+    ) -> Vec<String> {
+        speed.to_args(self, gpu, bitrate)
     }
 }
 
@@ -48,20 +54,59 @@ impl Conversion {
         Self { from, to }
     }
 
-    pub fn to_args(&self, speed: &ConversionSpeed) -> Vec<String> {
-        let conversion_opts: &[&str] = match self.to {
-            ConverterFormat::MP4 | ConverterFormat::MKV => &[
-                "-c:v",
-                "h264_nvenc",
-                "-c:a",
-                "aac",
-                "-strict",
-                "experimental",
-            ],
+    async fn accelerated_or_default_codec(
+        &self,
+        gpu: Option<&ConverterGPU>,
+        codecs: &[&str],
+        default: &str,
+    ) -> String {
+        for codec in codecs {
+            if let Some(gpu) = gpu {
+                if let Ok(encoder) = gpu.get_accelerated_codec(codec).await {
+                    return encoder;
+                }
+            }
+        }
+        default.to_string()
+    }
 
-            // TODO: add support for VP9
-            ConverterFormat::WebM => &["-c:v", "libvpx", "-c:a", "libvorbis"],
-            ConverterFormat::AVI => &["-c:v", "mpeg4", "-c:a", "libmp3lame"],
+    pub async fn to_args(
+        &self,
+        speed: &ConversionSpeed,
+        gpu: Option<&ConverterGPU>,
+        bitrate: u64,
+    ) -> anyhow::Result<Vec<String>> {
+        let conversion_opts: Vec<String> = match self.to {
+            ConverterFormat::MP4 | ConverterFormat::MKV => {
+                let encoder = self
+                    .accelerated_or_default_codec(gpu, &["h264"], "libx264")
+                    .await;
+                vec![
+                    "-c:v".to_string(),
+                    encoder,
+                    "-c:a".to_string(),
+                    "aac".to_string(),
+                    "-strict".to_string(),
+                    "experimental".to_string(),
+                ]
+            }
+            ConverterFormat::WebM => {
+                let encoder = self
+                    .accelerated_or_default_codec(gpu, &["vp8", "vp9"], "libvpx")
+                    .await;
+                vec![
+                    "-c:v".to_string(),
+                    encoder.to_string(),
+                    "-c:a".to_string(),
+                    "libvorbis".to_string(),
+                ]
+            }
+            ConverterFormat::AVI => vec![
+                "-c:v".to_string(),
+                "mpeg4".to_string(),
+                "-c:a".to_string(),
+                "libmp3lame".to_string(),
+            ],
         };
 
         let conversion_opts = conversion_opts
@@ -69,6 +114,12 @@ impl Conversion {
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
-        [conversion_opts, self.to.conversion_into_args(speed)].concat()
+        let result = [
+            conversion_opts,
+            self.to.conversion_into_args(speed, gpu, bitrate),
+        ]
+        .concat();
+
+        Ok(result)
     }
 }

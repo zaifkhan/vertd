@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use format::{Conversion, ConverterFormat};
 use job::{Job, ProgressUpdate};
+use log::error;
+use log::info;
 use speed::ConversionSpeed;
 use tokio::io::AsyncBufReadExt as _;
 use tokio::io::BufReader;
@@ -27,17 +29,23 @@ impl Converter {
         }
     }
 
-    pub async fn convert(&self, job: &Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
+    pub async fn convert(&self, job: &mut Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
         let (tx, rx) = mpsc::channel(1);
         let input_filename = format!("input/{}.{}", job.id, self.conversion.from.to_str());
         let output_filename = format!("output/{}.{}", job.id, self.conversion.to.to_str());
-        let args = self.conversion.to_args(&self.speed);
+        let gpu = gpu::get_gpu().await;
+        let gpu_option = gpu.as_ref().ok();
+        let bitrate = job.bitrate().await?;
+        let args = self
+            .conversion
+            .to_args(&self.speed, gpu_option, bitrate)
+            .await?;
         let args = args.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         let args = args.as_slice();
 
-        let gpu_args: &[&str] = match gpu::get_gpu().await {
+        let gpu_args: &[&str] = match gpu {
             Ok(g) => match g {
-                gpu::ConverterGPU::AMD => &["-hwaccel", "d3d11va"],
+                gpu::ConverterGPU::AMD => &["-hwaccel", "amf"],
                 gpu::ConverterGPU::Intel => &["-hwaccel", "qsv"],
                 gpu::ConverterGPU::NVIDIA => &["-hwaccel", "cuda"],
                 gpu::ConverterGPU::Apple => &["-hwaccel", "videotoolbox"],
@@ -61,13 +69,27 @@ impl Converter {
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
+        info!("running 'ffmpeg {}'", command.join(" "));
+
         let mut process = Command::new("ffmpeg")
             .args(command)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| anyhow!("failed to spawn ffmpeg: {}", e))?;
+
+        let stderr = process
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("failed to take stderr"))?;
+
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                error!("{}", line);
+            }
+        });
 
         let stdout = process
             .stdout

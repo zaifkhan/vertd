@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 use uuid::Uuid;
 
+const DEFAULT_BITRATE: u64 = 7 * 1024 * 1024;
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Job {
@@ -11,6 +13,7 @@ pub struct Job {
     pub to: Option<String>,
     pub completed: bool,
     total_frames: Option<u64>,
+    bitrate: Option<u64>,
 }
 
 impl Job {
@@ -22,7 +25,39 @@ impl Job {
             to: None,
             completed: false,
             total_frames: None,
+            bitrate: None,
         }
+    }
+
+    // TODO: scale based on resolution
+    pub async fn bitrate(&mut self) -> anyhow::Result<u64> {
+        if let Some(bitrate) = self.bitrate {
+            return Ok(bitrate);
+        }
+
+        let output = Command::new("ffprobe")
+            .args([
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=bit_rate",
+                "-of",
+                "default=nokey=1:noprint_wrappers=1",
+                &format!("input/{}.{}", self.id, self.from),
+            ])
+            .output()
+            .await?;
+
+        let bitrate = String::from_utf8(output.stdout)?;
+        let bitrate = match bitrate.trim().parse::<u64>() {
+            Ok(bitrate) => bitrate,
+            Err(_) => DEFAULT_BITRATE,
+        };
+
+        self.bitrate = Some(bitrate);
+        Ok(bitrate)
     }
 
     pub async fn total_frames(&mut self) -> anyhow::Result<u64> {

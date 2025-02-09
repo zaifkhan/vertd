@@ -42,7 +42,6 @@ async fn ffutil_version(util: FFUtil) -> anyhow::Result<String> {
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("vertd")).init();
     info!("starting vertd");
-
     let ffmpeg_version = match ffutil_version(FFUtil::FFmpeg).await {
         Ok(version) => version,
         Err(e) => {

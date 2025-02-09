@@ -68,7 +68,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                     to,
                     speed,
                 } => {
-                    let Some(job) = ({
+                    let Some(mut job) = ({
                         let mut app_state = APP_STATE.lock().await;
                         let job = app_state.jobs.get_mut(&job_id);
                         let clone = job.as_ref().map(|j| (*j).clone());
@@ -122,7 +122,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
 
                     let converter = Converter::new(from, to, speed);
 
-                    let mut rx = match converter.convert(&job).await {
+                    let mut rx = match converter.convert(&mut job).await {
                         Ok(rx) => rx,
                         Err(e) => {
                             let message: String = Message::Error {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::format::ConverterFormat;
+use super::{format::ConverterFormat, gpu::ConverterGPU};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,20 +14,51 @@ pub enum ConversionSpeed {
 }
 
 impl ConversionSpeed {
-    pub fn to_args(&self, to: &ConverterFormat) -> Vec<String> {
+    pub fn to_bitrate_mul(&self) -> f64 {
+        match self {
+            ConversionSpeed::UltraFast => 0.88,
+            ConversionSpeed::Fast => 0.94,
+            ConversionSpeed::Medium => 1.0,
+            ConversionSpeed::Slow => 1.06,
+            ConversionSpeed::Slower => 1.12,
+            ConversionSpeed::VerySlow => 1.18,
+        }
+    }
+
+    pub fn to_args(
+        &self,
+        to: &ConverterFormat,
+        gpu: Option<&ConverterGPU>,
+        bitrate: u64,
+    ) -> Vec<String> {
         let mut args = Vec::new();
 
         match to {
             ConverterFormat::MP4 | ConverterFormat::MKV => {
                 args.push("-preset".to_string());
-                match self {
-                    ConversionSpeed::UltraFast => args.push("ultrafast".to_string()),
-                    ConversionSpeed::Fast => args.push("fast".to_string()),
-                    ConversionSpeed::Medium => args.push("medium".to_string()),
-                    ConversionSpeed::Slow => args.push("slow".to_string()),
-                    ConversionSpeed::Slower => args.push("slower".to_string()),
-                    ConversionSpeed::VerySlow => args.push("veryslow".to_string()),
-                };
+                match gpu {
+                    Some(ConverterGPU::NVIDIA) => match self {
+                        // only "slow", "medium", and "fast" are supported
+                        ConversionSpeed::VerySlow | ConversionSpeed::Slower => {
+                            args.push("slow".to_string())
+                        }
+                        ConversionSpeed::Slow | ConversionSpeed::Medium => {
+                            args.push("medium".to_string())
+                        }
+                        ConversionSpeed::Fast | ConversionSpeed::UltraFast => {
+                            args.push("fast".to_string())
+                        }
+                    },
+
+                    _ => match self {
+                        ConversionSpeed::UltraFast => args.push("ultrafast".to_string()),
+                        ConversionSpeed::Fast => args.push("fast".to_string()),
+                        ConversionSpeed::Medium => args.push("medium".to_string()),
+                        ConversionSpeed::Slow => args.push("slow".to_string()),
+                        ConversionSpeed::Slower => args.push("slower".to_string()),
+                        ConversionSpeed::VerySlow => args.push("veryslow".to_string()),
+                    },
+                }
             }
 
             ConverterFormat::WebM | ConverterFormat::AVI => {
@@ -42,6 +73,10 @@ impl ConversionSpeed {
                 };
             }
         };
+
+        args.push("-b:v".to_string());
+        let bitrate = (bitrate as f64 * self.to_bitrate_mul()) as u64;
+        args.push(bitrate.to_string());
 
         args
     }

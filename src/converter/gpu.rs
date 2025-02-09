@@ -1,12 +1,42 @@
 use anyhow::anyhow;
 use std::fmt::{self, Display, Formatter};
+use tokio::process::Command;
 use wgpu::Instance;
 
 pub enum ConverterGPU {
     AMD,
     Intel,
     NVIDIA,
-    Apple, // DAMN YOU M* CHIPS
+    Apple,
+}
+
+impl ConverterGPU {
+    pub async fn get_accelerated_codec(&self, codec: &str) -> anyhow::Result<String> {
+        let priority = self.encoder_priority();
+        let encoders = Command::new("ffmpeg")
+            .args(["-hide_banner", "-encoders"])
+            .output()
+            .await
+            .map_err(|e| anyhow!("failed to get encoder support: {}", e))?;
+        let encoders = String::from_utf8(encoders.stdout)?;
+        for encoder in priority {
+            let encoder = format!("{}_{}", codec, encoder);
+            if encoders.contains(&encoder) {
+                return Ok(encoder);
+            }
+        }
+
+        Err(anyhow!("no supported encoder found for {}", codec))
+    }
+
+    pub fn encoder_priority(&self) -> Vec<&str> {
+        match self {
+            ConverterGPU::AMD => vec!["amf"],
+            ConverterGPU::Intel => vec!["qsv"],
+            ConverterGPU::NVIDIA => vec!["nvenc"],
+            ConverterGPU::Apple => vec!["videotoolbox"],
+        }
+    }
 }
 
 impl Display for ConverterGPU {
