@@ -41,5 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vertd
-          path: target/${{ matrix.target }}/release/
+          path: target/${{ matrix.target }}/release/vertd
           if-no-files-found: error
