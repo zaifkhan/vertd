@@ -6,3 +6,4 @@ ffmpeg
 ffprobe.exe
 ffprobe
 input.mp4
+.env
