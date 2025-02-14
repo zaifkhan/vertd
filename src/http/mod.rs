@@ -24,7 +24,12 @@ pub async fn start_http() -> anyhow::Result<()> {
                     .service(version),
             )
     });
-    info!("http server listening on 0.0.0.0:24153");
-    server.bind("0.0.0.0:24153")?.run().await?;
+    let port = std::env::var("PORT").unwrap_or_else(|_| "24153".to_string());
+    if !port.chars().all(char::is_numeric) {
+        anyhow::bail!("PORT must be a number");
+    }
+    let ip = format!("0.0.0.0:{}", port);
+    info!("http server listening on {}", ip);
+    server.bind(ip)?.run().await?;
     Ok(())
 }

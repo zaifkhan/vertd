@@ -5,6 +5,7 @@ mod state;
 use std::{process::exit, time::Duration};
 
 use converter::gpu::get_gpu;
+use dotenv::dotenv;
 use env_logger::Env;
 use http::start_http;
 use log::{error, info};
@@ -40,6 +41,7 @@ async fn ffutil_version(util: FFUtil) -> anyhow::Result<String> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("vertd")).init();
     info!("starting vertd");
     let ffmpeg_version = match ffutil_version(FFUtil::FFmpeg).await {
