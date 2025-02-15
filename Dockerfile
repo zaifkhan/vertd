@@ -2,7 +2,7 @@ FROM xychelsea/ffmpeg-nvidia:latest
 
 USER root
 
-RUN apt-get update --allow-unauthenticated && apt-get install -y \
+RUN apt-get update --allow-insecure-repositories && apt-get install -y \
     curl \
     build-essential \
     libclang-dev \
