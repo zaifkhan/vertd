@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04
+FROM xychelsea/ffmpeg-nvidia:latest
 
 RUN apt-get update && apt-get install -y \
     curl \
