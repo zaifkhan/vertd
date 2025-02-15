@@ -106,7 +106,7 @@ impl Conversion {
             }
             ConverterFormat::WebM => {
                 let encoder = self
-                    .accelerated_or_default_codec(gpu, &["vp8", "vp9"], "libvpx")
+                    .accelerated_or_default_codec(gpu, &["av1", "vp9", "vp8"], "libvpx")
                     .await;
                 vec![
                     "-c:v".to_string(),
