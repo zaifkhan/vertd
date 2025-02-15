@@ -5,7 +5,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libclang-dev \
     vulkan-tools \
-    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
