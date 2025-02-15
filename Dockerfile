@@ -1,4 +1,4 @@
-FROM hiwaymedia/nvenc-docker:latest
+FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04
 
 RUN apt-get update --allow-insecure-repositories && apt-get install -y \
     curl \
