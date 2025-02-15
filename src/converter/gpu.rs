@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use log::warn;
 use std::fmt::{self, Display, Formatter};
 use tokio::process::Command;
 use wgpu::Instance;
@@ -50,6 +51,12 @@ impl Display for ConverterGPU {
     }
 }
 
+async fn is_docker() -> bool {
+    let dockerenv = tokio::fs::metadata("/.dockerenv").await.is_ok();
+    let cgroup = tokio::fs::metadata("/proc/1/cgroup").await.is_ok();
+    dockerenv || cgroup
+}
+
 pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
     let instance = Instance::default();
     let adapter = instance
@@ -70,6 +77,10 @@ pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
         0x1022 => Ok(ConverterGPU::AMD),
         0x8086 => Ok(ConverterGPU::Intel), // fun fact: intel's vendor id is 0x8086, presumably in reference to the intel 8086 processor
         0x106B | 0x0 => Ok(ConverterGPU::Apple),
+        0x10005 if is_docker().await => {
+            warn!("are you in a docker container? assuming NVIDIA, please open a PR and fix this if you're not.");
+            Ok(ConverterGPU::NVIDIA)
+        }
         _ => Err(anyhow!("unknown GPU vendor: 0x{:X}", info.vendor)),
     }
 }
