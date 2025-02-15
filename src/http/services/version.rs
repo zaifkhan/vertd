@@ -8,5 +8,9 @@ struct BuildTag;
 
 #[get("/version")]
 pub async fn version() -> impl Responder {
-    ApiResponse::Success(BuildTag {}.get_build_commit())
+    let build_tag = BuildTag {}.get_build_commit();
+    if build_tag.starts_with("-") {
+        return ApiResponse::Success("latest");
+    }
+    ApiResponse::Success(build_tag)
 }
