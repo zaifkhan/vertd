@@ -5,3 +5,10 @@ services:
       - PORT=${PORT:-24153}
     ports:
       - "${PORT:-24153}:${PORT:-24153}"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
