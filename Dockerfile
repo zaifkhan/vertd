@@ -1,11 +1,15 @@
 FROM xychelsea/ffmpeg-nvidia:latest
 
+USER root
+
 RUN apt-get update --allow-insecure-repositories && apt-get install -y \
     curl \
     build-essential \
     libclang-dev \
     vulkan-tools \
     && rm -rf /var/lib/apt/lists/*
+
+USER anaconda
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
