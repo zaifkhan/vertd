@@ -10,12 +10,12 @@ RUN apt-get update --allow-insecure-repositories && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 COPY . .
 
 # build
-RUN cargo build --release
+# RUN cargo build --release
+RUN $HOME/.cargo/bin/cargo build --release
 
 CMD ["./target/release/vertd"]
