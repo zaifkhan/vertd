@@ -1,0 +1,7 @@
+services:
+  vertd:
+    build: .
+    environment:
+      - PORT=${PORT:-24153}
+    ports:
+      - "${PORT:-24153}:${PORT:-24153}"
