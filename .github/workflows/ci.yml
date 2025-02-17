@@ -45,7 +45,7 @@ jobs:
   release:
     name: Publish release
     needs: build # wait for all builds to finish
-    runs-on: vert-mac # TODO: run on vert-linux instead for slightly faster releases (thanks kvm!)
+    runs-on: vert-linux
     permissions:
       contents: write # necessary for releases?
     steps:
