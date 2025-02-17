@@ -13,6 +13,7 @@ jobs:
       matrix:
         include:
           - os: vert-mac
+            friendly-name: mac-arm64
             target: aarch64-apple-darwin
             format: ""
           # TODO: set up more self-hosted runners
@@ -32,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: target/${{ matrix.target }}/release/vertd${{ matrix.format }}
-          name: vertd${{ matrix.format }}
+          name: vertd-${{ matrix.friendly-name }}${{ matrix.format }}
 
   release:
     name: Publish release
