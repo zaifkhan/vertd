@@ -63,7 +63,7 @@ jobs:
           for dir in artifacts/vertd-*; do
             [ -d "$dir" ] || continue
             bin_name=$(basename "$dir")
-            mv "$dir/vertd" "artifacts/output/$bin_name"
+            mv "$dir"/* "artifacts/output/$bin_name"
           done
 
       - name: Create release
