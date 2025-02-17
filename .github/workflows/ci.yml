@@ -38,6 +38,8 @@ jobs:
     name: Publish release
     needs: build # wait for all builds to finish
     runs-on: vert-mac # TODO: run on vert-linux instead for slightly faster releases (thanks kvm!)
+    permissions:
+      contents: write # necessary for releases?
     steps:
       - name: Checkout
         uses: actions/checkout@v4
