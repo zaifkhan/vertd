@@ -1,4 +1,10 @@
-name: Build
+# note: vert-windows is actually a linux machine
+# it is the same machine and environment as vert-linux
+# the only reason it exists is to allow for parallel
+# builds on the same machine, to massively boost build
+# times -- gh actions only allows 1 job per machine
+
+name: Build and Release
 
 on:
   push:
@@ -12,17 +18,35 @@ jobs:
     strategy:
       matrix:
         include:
+          # macOS
           - os: vert-mac
             friendly-name: mac-arm64
             target: aarch64-apple-darwin
-            format: ""
+          - os: vert-mac
+            friendly-name: mac-x86_64
+            target: x86_64-apple-darwin
+          # Linux
           - os: vert-linux
             friendly-name: linux-x86_64
             target: x86_64-unknown-linux-gnu
-            format: ""
           - os: vert-linux
+            friendly-name: linux-x86
+            target: i686-unknown-linux-gnu
+          - os: vert-linux
+            friendly-name: linux-arm64
+            target: aarch64-unknown-linux-gnu
+          # Windows
+          - os: vert-windows
             friendly-name: windows-x86_64
             target: x86_64-pc-windows-gnu
+            format: ".exe"
+          - os: vert-windows
+            friendly-name: windows-x86
+            target: i686-pc-windows-gnu
+            format: ".exe"
+          - os: vert-windows
+            friendly-name: windows-arm64
+            target: aarch64-pc-windows-gnullvm
             format: ".exe"
     steps:
       - name: Checkout
