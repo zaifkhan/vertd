@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use format::{Conversion, ConverterFormat};
@@ -84,10 +85,15 @@ impl Converter {
             .take()
             .ok_or_else(|| anyhow!("failed to take stderr"))?;
 
+        let tx_arc = Arc::new(tx);
+
+        let tx = Arc::clone(&tx_arc);
+
         tokio::spawn(async move {
             let mut lines = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 error!("{}", line);
+                tx.send(ProgressUpdate::Error(line)).await.unwrap();
             }
         });
 
@@ -96,6 +102,8 @@ impl Converter {
             .take()
             .ok_or_else(|| anyhow!("failed to take stdout"))?;
         let reader = BufReader::new(stdout);
+
+        let tx = Arc::clone(&tx_arc);
 
         tokio::spawn(async move {
             let mut lines = reader.lines();

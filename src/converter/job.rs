@@ -97,4 +97,6 @@ pub enum ProgressUpdate {
     Frame(u64),
     #[serde(rename = "fps", rename_all = "camelCase")]
     FPS(f64),
+    #[serde(rename = "error", rename_all = "camelCase")]
+    Error(String),
 }

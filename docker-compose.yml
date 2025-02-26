@@ -3,6 +3,8 @@ services:
     build: .
     environment:
       - PORT=${PORT:-24153}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - WEBHOOK_PINGS=${WEBHOOK_PINGS}
     ports:
       - "${PORT:-24153}:${PORT:-24153}"
     deploy:

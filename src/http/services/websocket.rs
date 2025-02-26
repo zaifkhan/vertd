@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use actix_web::{get, rt, web, Error, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
+use discord_webhook2::{message, webhook::DiscordWebhook};
 use futures_util::StreamExt as _;
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -134,19 +137,55 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         }
                     };
 
-                    while let Some(update) = rx.recv().await {
-                        let message: String = Message::ProgressUpdate(update).into();
-                        session.text(message).await.unwrap();
-                    }
+                    let mut logs = Vec::new();
 
-                    let message: String = Message::JobFinished { job_id }.into();
-                    session.text(message).await.unwrap();
+                    while let Some(update) = rx.recv().await {
+                        match update {
+                            ProgressUpdate::Error(err) => {
+                                logs.push(err);
+                            }
+                            _ => {
+                                let message: String = Message::ProgressUpdate(update).into();
+                                session.text(message).await.unwrap();
+                            }
+                        }
+                    }
 
                     let mut app_state = APP_STATE.lock().await;
                     if let Some(job) = app_state.jobs.get_mut(&job_id) {
                         job.completed = true;
                     }
                     drop(app_state);
+
+                    // check if output/{}.{} exists and isn't empty
+                    let is_empty = fs::metadata(&format!("output/{}.{}", job_id, to.to_str()))
+                        .await
+                        .map(|m| m.len() == 0)
+                        .unwrap_or(true);
+
+                    if is_empty {
+                        log::error!("job {} failed", job_id);
+                        let message: String = Message::Error {
+                            message: "oops -- your job failed! maddie has been notified :)"
+                                .to_string(),
+                        }
+                        .into();
+                        session.text(message).await.unwrap();
+
+                        let from = job.from.clone();
+                        let to = to.to_str().to_string();
+
+                        tokio::spawn(async move {
+                            if let Err(e) =
+                                handle_job_failure(job_id, from, to, logs.join("\n")).await
+                            {
+                                log::error!("failed to handle job failure: {}", e);
+                            }
+                        });
+                    } else {
+                        let message: String = Message::JobFinished { job_id }.into();
+                        session.text(message).await.unwrap();
+                    }
 
                     tokio::spawn(async move {
                         tokio::time::sleep(OUTPUT_LIFETIME).await;
@@ -182,4 +221,32 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
     });
 
     Ok(res)
+}
+
+async fn handle_job_failure(
+    job_id: Uuid,
+    from: String,
+    to: String,
+    logs: String,
+) -> anyhow::Result<()> {
+    let client_url = std::env::var("WEBHOOK_URL")?;
+    let mentions = std::env::var("WEBHOOK_PINGS").unwrap_or_else(|_| "".to_string());
+
+    let mut files = BTreeMap::new();
+    files.insert(format!("{}.log", job_id), logs.as_bytes().to_vec());
+
+    let client = DiscordWebhook::new(&client_url)?;
+    let message = message::Message::new(|m| {
+        m.content(format!("🚨🚨🚨 {}", mentions)).embed(|e| {
+            e.title("vertd job failed!")
+                .field(|f| f.name("job id").value(job_id))
+                .field(|f| f.name("from").value(format!(".{}", from)).inline(true))
+                .field(|f| f.name("to").value(format!(".{}", to)).inline(true))
+                .color(0xff83fa)
+        })
+    });
+
+    client.send_with_files(&message, files).await?;
+
+    Ok(())
 }
