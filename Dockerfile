@@ -6,7 +6,7 @@ RUN apt-get update --allow-insecure-repositories && apt-get install -y \
     libclang-dev \
     vulkan-tools \
     ffmpeg \
-    openssl-dev \
+    libssl6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
