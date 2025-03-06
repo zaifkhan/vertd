@@ -73,5 +73,6 @@ pub async fn download(path: web::Path<(Uuid, String)>) -> Result<impl Responder,
 
     Ok(HttpResponse::Ok()
         .insert_header(("Content-Type", mime))
+        .insert_header(("Content-Length", bytes.len()))
         .body(bytes))
 }
