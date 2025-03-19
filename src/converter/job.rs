@@ -15,6 +15,7 @@ pub struct Job {
     pub completed: bool,
     total_frames: Option<u64>,
     bitrate: Option<u64>,
+    fps: Option<u32>,
 }
 
 impl Job {
@@ -27,6 +28,7 @@ impl Job {
             completed: false,
             total_frames: None,
             bitrate: None,
+            fps: None,
         }
     }
 
@@ -109,6 +111,50 @@ impl Job {
         self.total_frames = Some(total_frames);
 
         Ok(total_frames)
+    }
+
+    pub async fn fps(&mut self) -> anyhow::Result<u32> {
+        if let Some(fps) = self.fps {
+            return Ok(fps);
+        }
+
+        let output = Command::new("ffprobe")
+            .args([
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=r_frame_rate",
+                "-of",
+                "default=nokey=1:noprint_wrappers=1",
+                &format!("input/{}.{}", self.id, self.from),
+            ])
+            .output()
+            .await?;
+
+        // its  gonna look like "30000/1001"
+        let fps = String::from_utf8(output.stdout)
+            .map_err(|e| anyhow::anyhow!("failed to parse fps: {}", e))?;
+
+        let fps = fps.trim().split('/').collect::<Vec<&str>>();
+        let fps = if fps.len() == 1 {
+            fps[0].parse::<u32>()?
+        } else if fps.len() == 2 {
+            let numerator = fps[0].parse::<u32>()?;
+            let denominator = fps[1].parse::<u32>()?;
+            (numerator as f64 / denominator as f64).round() as u32
+        } else {
+            return Err(anyhow::anyhow!("failed to parse fps"));
+        };
+
+        self.fps = Some(fps);
+        Ok(fps)
+    }
+
+    pub async fn bitrate_and_fps(&mut self) -> anyhow::Result<(u64, u32)> {
+        let (bitrate, fps) = (self.bitrate().await?, self.fps().await?);
+        Ok((bitrate, fps))
     }
 }
 

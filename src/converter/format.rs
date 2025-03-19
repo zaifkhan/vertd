@@ -9,6 +9,7 @@ lazy_static! {
         let mut map = HashMap::new();
         map.insert("mp4", ConverterFormat::MP4);
         map.insert("webm", ConverterFormat::WebM);
+        map.insert("gif", ConverterFormat::GIF);
         map.insert("avi", ConverterFormat::AVI);
         map.insert("mkv", ConverterFormat::MKV);
         map.insert("wmv", ConverterFormat::WMV);
@@ -21,6 +22,7 @@ lazy_static! {
 pub enum ConverterFormat {
     MP4,
     WebM,
+    GIF,
     AVI,
     MKV,
     WMV,
@@ -40,7 +42,7 @@ impl ConverterFormat {
     pub fn conversion_into_args(
         &self,
         speed: &ConversionSpeed,
-        gpu: Option<&ConverterGPU>,
+        gpu: &ConverterGPU,
         bitrate: u64,
     ) -> Vec<String> {
         speed.to_args(self, gpu, bitrate)
@@ -59,15 +61,13 @@ impl Conversion {
 
     async fn accelerated_or_default_codec(
         &self,
-        gpu: Option<&ConverterGPU>,
+        gpu: &ConverterGPU,
         codecs: &[&str],
         default: &str,
     ) -> String {
         for codec in codecs {
-            if let Some(gpu) = gpu {
-                if let Ok(encoder) = gpu.get_accelerated_codec(codec).await {
-                    return encoder;
-                }
+            if let Ok(encoder) = gpu.get_accelerated_codec(codec).await {
+                return encoder;
             }
         }
         default.to_string()
@@ -76,8 +76,9 @@ impl Conversion {
     pub async fn to_args(
         &self,
         speed: &ConversionSpeed,
-        gpu: Option<&ConverterGPU>,
+        gpu: &ConverterGPU,
         bitrate: u64,
+        fps: u32,
     ) -> anyhow::Result<Vec<String>> {
         let conversion_opts: Vec<String> = match self.to {
             ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
@@ -93,6 +94,17 @@ impl Conversion {
                     "experimental".to_string(),
                 ]
             }
+
+            ConverterFormat::GIF => {
+                vec![
+                   "-filter_complex".to_string(), 
+                   format!(
+                    "fps={},scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
+                    fps.min(24)
+                   )
+                ]
+            }
+
             ConverterFormat::WMV => {
                 let encoder = self
                     .accelerated_or_default_codec(gpu, &["wmv2", "wmv3"], "wmv2")

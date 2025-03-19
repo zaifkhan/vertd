@@ -26,19 +26,14 @@ impl ConversionSpeed {
         }
     }
 
-    pub fn to_args(
-        &self,
-        to: &ConverterFormat,
-        gpu: Option<&ConverterGPU>,
-        bitrate: u64,
-    ) -> Vec<String> {
+    pub fn to_args(&self, to: &ConverterFormat, gpu: &ConverterGPU, bitrate: u64) -> Vec<String> {
         let mut args = Vec::new();
 
         match to {
             ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
                 args.push("-preset".to_string());
                 match gpu {
-                    Some(ConverterGPU::NVIDIA) => match self {
+                    ConverterGPU::NVIDIA => match self {
                         // only "slow", "medium", and "fast" are supported
                         ConversionSpeed::VerySlow | ConversionSpeed::Slower => {
                             args.push("slow".to_string())
@@ -62,6 +57,8 @@ impl ConversionSpeed {
                 }
             }
 
+            ConverterFormat::GIF => {}
+
             ConverterFormat::WebM | ConverterFormat::AVI => {
                 args.push("-speed".to_string());
                 match self {
@@ -79,9 +76,11 @@ impl ConversionSpeed {
             }
         };
 
-        args.push("-b:v".to_string());
-        let bitrate = (bitrate as f64 * self.to_bitrate_mul()) as u64;
-        args.push(bitrate.to_string());
+        if *to != ConverterFormat::GIF {
+            args.push("-b:v".to_string());
+            let bitrate = (bitrate as f64 * self.to_bitrate_mul()) as u64;
+            args.push(bitrate.to_string());
+        }
 
         args
     }

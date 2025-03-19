@@ -34,27 +34,23 @@ impl Converter {
         let (tx, rx) = mpsc::channel(1);
         let input_filename = format!("input/{}.{}", job.id, self.conversion.from.to_str());
         let output_filename = format!("output/{}.{}", job.id, self.conversion.to.to_str());
-        let gpu = gpu::get_gpu().await;
-        let gpu_option = gpu.as_ref().ok();
-        let bitrate = job.bitrate().await?;
+        // let gpu = gpu::get_gpu().await;
+        // let bitrate = job.bitrate().await?;
+        // let fps = job.fps().await?;
+        // the above but we run in parallel
+        let (gpu, (bitrate, fps)) = tokio::try_join!(gpu::get_gpu(), job.bitrate_and_fps())?;
         let args = self
             .conversion
-            .to_args(&self.speed, gpu_option, bitrate)
+            .to_args(&self.speed, &gpu, bitrate, fps)
             .await?;
         let args = args.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
         let args = args.as_slice();
 
         let gpu_args: &[&str] = match gpu {
-            Ok(g) => match g {
-                gpu::ConverterGPU::AMD => &["-hwaccel", "amf"],
-                gpu::ConverterGPU::Intel => &["-hwaccel", "qsv"],
-                gpu::ConverterGPU::NVIDIA => &["-hwaccel", "cuda"],
-                gpu::ConverterGPU::Apple => &["-hwaccel", "videotoolbox"],
-            },
-            Err(e) => {
-                log::warn!("failed to get GPU: {}", e);
-                &[]
-            }
+            gpu::ConverterGPU::AMD => &["-hwaccel", "amf"],
+            gpu::ConverterGPU::Intel => &["-hwaccel", "qsv"],
+            gpu::ConverterGPU::NVIDIA => &["-hwaccel", "cuda"],
+            gpu::ConverterGPU::Apple => &["-hwaccel", "videotoolbox"],
         };
 
         let command = &[
