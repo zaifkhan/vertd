@@ -30,7 +30,10 @@ impl ConversionSpeed {
         let mut args = Vec::new();
 
         match to {
-            ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
+            ConverterFormat::MP4
+            | ConverterFormat::MKV
+            | ConverterFormat::MOV
+            | ConverterFormat::MTS => {
                 args.push("-preset".to_string());
                 match gpu {
                     ConverterGPU::NVIDIA => match self {

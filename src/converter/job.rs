@@ -101,12 +101,21 @@ impl Job {
                 }
             })?;
 
-        let duration = lines.next()
-            .ok_or_else(|| anyhow::anyhow!("Missing Duration - Please check if your file is not corrupted or damaged"))?
+        let duration = lines
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Missing Duration - Please check if your file is not corrupted or damaged"
+                )
+            })?
             .trim()
             .parse::<f64>()
-            .map_err(|_| anyhow::anyhow!("Invalid Duration - Please check if your file is not corrupted or damaged"))?;
-            
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Invalid Duration - Please check if your file is not corrupted or damaged"
+                )
+            })?;
+
         let total_frames = (avg_frame_rate * duration).ceil() as u64;
         self.total_frames = Some(total_frames);
 
@@ -143,6 +152,10 @@ impl Job {
         } else if fps.len() == 2 {
             let numerator = fps[0].parse::<u32>()?;
             let denominator = fps[1].parse::<u32>()?;
+            (numerator as f64 / denominator as f64).round() as u32
+        } else if fps.len() == 3 {
+            let numerator = fps[0].parse::<u32>()?;
+            let denominator = fps[2].parse::<u32>()?;
             (numerator as f64 / denominator as f64).round() as u32
         } else {
             return Err(anyhow::anyhow!("failed to parse fps"));

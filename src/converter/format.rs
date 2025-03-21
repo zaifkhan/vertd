@@ -1,24 +1,8 @@
-use std::collections::HashMap;
-
-use lazy_static::lazy_static;
-
 use super::{gpu::ConverterGPU, speed::ConversionSpeed};
+use strum_macros::{Display, EnumString};
 
-lazy_static! {
-    pub static ref FORMATS: HashMap<&'static str, ConverterFormat> = {
-        let mut map = HashMap::new();
-        map.insert("mp4", ConverterFormat::MP4);
-        map.insert("webm", ConverterFormat::WebM);
-        map.insert("gif", ConverterFormat::GIF);
-        map.insert("avi", ConverterFormat::AVI);
-        map.insert("mkv", ConverterFormat::MKV);
-        map.insert("wmv", ConverterFormat::WMV);
-        map.insert("mov", ConverterFormat::MOV);
-        map
-    };
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, EnumString, Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum ConverterFormat {
     MP4,
     WebM,
@@ -27,18 +11,10 @@ pub enum ConverterFormat {
     MKV,
     WMV,
     MOV,
+    MTS,
 }
 
 impl ConverterFormat {
-    pub fn from_str(s: &str) -> Option<Self> {
-        let ext = s.split('.').last().or_else(|| Some(s))?;
-        FORMATS.get(ext).copied()
-    }
-
-    pub fn to_str(&self) -> &str {
-        FORMATS.iter().find(|(_, v)| **v == *self).unwrap().0
-    }
-
     pub fn conversion_into_args(
         &self,
         speed: &ConversionSpeed,
@@ -81,7 +57,10 @@ impl Conversion {
         fps: u32,
     ) -> anyhow::Result<Vec<String>> {
         let conversion_opts: Vec<String> = match self.to {
-            ConverterFormat::MP4 | ConverterFormat::MKV | ConverterFormat::MOV => {
+            ConverterFormat::MP4
+            | ConverterFormat::MKV
+            | ConverterFormat::MOV
+            | ConverterFormat::MTS => {
                 let encoder = self
                     .accelerated_or_default_codec(gpu, &["h264"], "libx264")
                     .await;

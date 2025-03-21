@@ -1,5 +1,5 @@
 use crate::{
-    converter::{format::FORMATS, job::Job},
+    converter::{format::ConverterFormat, job::Job},
     http::response::ApiResponse,
     state::APP_STATE,
 };
@@ -25,8 +25,8 @@ pub enum UploadError {
     GetChunk(#[from] actix_web::Error),
     #[error("internal server error while writing file")]
     WriteFile(#[from] std::io::Error),
-    #[error("ffprobe failed to read file")]
-    ParseFile,
+    #[error("ffprobe failed to read file: {0}")]
+    ParseFile(#[from] anyhow::Error),
 }
 
 impl ResponseError for UploadError {
@@ -75,7 +75,8 @@ pub async fn upload(mut payload: Multipart) -> Result<impl Responder, UploadErro
             })
             .ok_or_else(|| UploadError::NoExtension)?;
 
-        if !FORMATS.contains_key(ext.as_str()) {
+        if let Err(e) = ext.parse::<ConverterFormat>() {
+            log::error!("failed to parse file extension: {}", e);
             return Err(UploadError::InvalidExtension(ext));
         }
 
@@ -110,9 +111,6 @@ pub async fn upload(mut payload: Multipart) -> Result<impl Responder, UploadErro
         break;
     }
     let mut job = job.ok_or_else(|| UploadError::NoFile)?;
-    job.total_frames()
-        .await
-        .ok()
-        .ok_or_else(|| UploadError::ParseFile)?;
+    job.total_frames().await?;
     Ok(ApiResponse::Success(job))
 }

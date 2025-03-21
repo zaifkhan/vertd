@@ -105,7 +105,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         continue;
                     }
 
-                    let Some(from) = ConverterFormat::from_str(job.from.as_str()) else {
+                    let Ok(from) = job.from.parse::<ConverterFormat>() else {
                         let message: String = Message::Error {
                             message: "invalid input format".to_string(),
                         }
@@ -114,7 +114,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         continue;
                     };
 
-                    let Some(to) = ConverterFormat::from_str(to.as_str()) else {
+                    let Ok(to) = to.parse::<ConverterFormat>() else {
                         let message: String = Message::Error {
                             message: "invalid output format".to_string(),
                         }
@@ -158,7 +158,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                     drop(app_state);
 
                     // check if output/{}.{} exists and isn't empty
-                    let is_empty = fs::metadata(&format!("output/{}.{}", job_id, to.to_str()))
+                    let is_empty = fs::metadata(&format!("output/{}.{}", job_id, to.to_string()))
                         .await
                         .map(|m| m.len() == 0)
                         .unwrap_or(true);
@@ -173,7 +173,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         session.text(message).await.unwrap();
 
                         let from = job.from.clone();
-                        let to = to.to_str().to_string();
+                        let to = to.to_string().to_string();
 
                         tokio::spawn(async move {
                             if let Err(e) =
@@ -193,7 +193,7 @@ pub async fn websocket(req: HttpRequest, stream: web::Payload) -> Result<HttpRes
                         app_state.jobs.remove(&job_id);
                         drop(app_state);
 
-                        let path = format!("output/{}.{}", job_id, to.to_str());
+                        let path = format!("output/{}.{}", job_id, to.to_string());
                         if let Err(e) = fs::remove_file(&path).await {
                             if e.kind() != std::io::ErrorKind::NotFound {
                                 log::error!("failed to remove output file: {}", e);

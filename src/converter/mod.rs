@@ -32,8 +32,8 @@ impl Converter {
 
     pub async fn convert(&self, job: &mut Job) -> anyhow::Result<mpsc::Receiver<ProgressUpdate>> {
         let (tx, rx) = mpsc::channel(1);
-        let input_filename = format!("input/{}.{}", job.id, self.conversion.from.to_str());
-        let output_filename = format!("output/{}.{}", job.id, self.conversion.to.to_str());
+        let input_filename = format!("input/{}.{}", job.id, self.conversion.from.to_string());
+        let output_filename = format!("output/{}.{}", job.id, self.conversion.to.to_string());
         // let gpu = gpu::get_gpu().await;
         // let bitrate = job.bitrate().await?;
         // let fps = job.fps().await?;
