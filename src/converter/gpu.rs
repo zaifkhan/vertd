@@ -74,7 +74,7 @@ pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
     }
     match info.vendor {
         0x10DE => Ok(ConverterGPU::NVIDIA),
-        0x1022 => Ok(ConverterGPU::AMD),
+        0x1002 => Ok(ConverterGPU::AMD),
         0x8086 => Ok(ConverterGPU::Intel), // fun fact: intel's vendor id is 0x8086, presumably in reference to the intel 8086 processor
         0x106B | 0x0 => Ok(ConverterGPU::Apple),
         0x10005 if is_docker().await => {
