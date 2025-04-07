@@ -69,56 +69,31 @@ impl Job {
             return Ok(total_frames);
         }
 
+        let path = format!("input/{}.{}", self.id, self.from);
+
         let output = Command::new("ffprobe")
             .args([
                 "-v",
                 "error",
                 "-select_streams",
                 "v:0",
+                "-count_packets",
                 "-show_entries",
-                "stream=avg_frame_rate,duration",
+                "stream=nb_read_packets",
                 "-of",
-                "default=nokey=1:noprint_wrappers=1",
-                &format!("input/{}.{}", self.id, self.from),
+                "csv=p=0",
+                &path,
             ])
             .output()
             .await?;
 
-        let output_str = String::from_utf8(output.stdout)?;
-        let mut lines = output_str.lines();
-
-        let avg_frame_rate = lines.next()
-            .unwrap_or("60/1")
+        let total_frames = String::from_utf8(output.stdout)
+            .map_err(|e| anyhow::anyhow!("failed to parse total frames: {}", e))?
             .trim()
-            .split('/')
-            .map(|s| s.parse::<f64>().map_err(|_| anyhow::anyhow!("Invalid Frame Rate - Please check if your file is not corrupted or damaged")))
-            .collect::<Result<Vec<f64>, _>>() // Collect results and return an error if any parsing fails
-            .and_then(|nums| {
-                if nums.len() == 2 && nums[1] != 0.0 {
-                    Ok(nums[0] / nums[1])
-                } else {
-                    Err(anyhow::anyhow!("Invalid Frame Rate - Please check if your file is not corrupted or damaged"))
-                }
-            })?;
+            .parse::<u64>()
+            .map_err(|e| anyhow::anyhow!("failed to parse total frames: {}", e))?;
 
-        let duration = lines
-            .next()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Missing Duration - Please check if your file is not corrupted or damaged"
-                )
-            })?
-            .trim()
-            .parse::<f64>()
-            .map_err(|_| {
-                anyhow::anyhow!(
-                    "Invalid Duration - Please check if your file is not corrupted or damaged"
-                )
-            })?;
-
-        let total_frames = (avg_frame_rate * duration).ceil() as u64;
         self.total_frames = Some(total_frames);
-
         Ok(total_frames)
     }
 
