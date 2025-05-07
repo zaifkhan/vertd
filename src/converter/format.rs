@@ -12,6 +12,8 @@ pub enum ConverterFormat {
     WMV,
     MOV,
     MTS,
+    TS,
+    M2TS,
 }
 
 impl ConverterFormat {
@@ -60,7 +62,9 @@ impl Conversion {
             ConverterFormat::MP4
             | ConverterFormat::MKV
             | ConverterFormat::MOV
-            | ConverterFormat::MTS => {
+            | ConverterFormat::MTS
+            | ConverterFormat::TS
+            | ConverterFormat::M2TS => {
                 let encoder = self
                     .accelerated_or_default_codec(gpu, &["h264"], "libx264")
                     .await;
