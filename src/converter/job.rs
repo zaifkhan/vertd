@@ -90,7 +90,6 @@ impl Job {
         let total_frames = String::from_utf8(output.stdout)
             .map_err(|e| anyhow::anyhow!("failed to parse total frames: {}", e))?
             .lines()
-            .filter_map(|line| line.trim().split(',').next())
             .find_map(|s| {
                 // Filter out non-numeric characters
                 let numeric: String = s.chars().filter(|c| c.is_numeric()).collect();
