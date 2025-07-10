@@ -77,25 +77,29 @@ impl Job {
                 "error",
                 "-select_streams",
                 "v:0",
-                "-count_packets",
+                "-count_frames", // Changed from -count_packets for better accuracy
                 "-show_entries",
-                "stream=nb_read_packets",
+                "stream=nb_read_frames", // Changed from nb_read_packets
                 "-of",
                 "csv=p=0",
                 &path,
             ])
             .output()
             .await?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("ffprobe failed to count frames: {}", stderr));
+        }
 
-        let total_frames = String::from_utf8(output.stdout)
-            .map_err(|e| anyhow::anyhow!("failed to parse total frames: {}", e))?
-            .lines()
-            .find_map(|s| {
-                // Filter out non-numeric characters
-                let numeric: String = s.chars().filter(|c| c.is_numeric()).collect();
-                numeric.parse::<u64>().ok()
-            })
-            .ok_or_else(|| anyhow::anyhow!("Error parsing total frames from output"))?;
+        let total_frames_str = String::from_utf8(output.stdout)
+            .map_err(|e| anyhow::anyhow!("failed to parse total frames from ffprobe stdout: {}", e))?;
+            
+        let total_frames = total_frames_str
+            .trim()
+            .parse::<u64>()
+            .map_err(|_| anyhow::anyhow!("Could not parse '{}' as total frames", total_frames_str))?;
+
 
         self.total_frames = Some(total_frames);
         Ok(total_frames)
@@ -125,19 +129,15 @@ impl Job {
         let fps = String::from_utf8(output.stdout)
             .map_err(|e| anyhow::anyhow!("failed to parse fps: {}", e))?;
 
-        let fps = fps.trim().split('/').collect::<Vec<&str>>();
-        let fps = if fps.len() == 1 {
-            fps[0].parse::<u32>()?
-        } else if fps.len() == 2 {
-            let numerator = fps[0].parse::<u32>()?;
-            let denominator = fps[1].parse::<u32>()?;
-            (numerator as f64 / denominator as f64).round() as u32
-        } else if fps.len() == 3 {
-            let numerator = fps[0].parse::<u32>()?;
-            let denominator = fps[2].parse::<u32>()?;
-            (numerator as f64 / denominator as f64).round() as u32
+        let fps_parts: Vec<&str> = fps.trim().split('/').collect();
+        let fps = if fps_parts.len() == 1 {
+            fps_parts[0].parse::<u32>()?
+        } else if fps_parts.len() == 2 {
+            let numerator = fps_parts[0].parse::<f64>()?;
+            let denominator = fps_parts[1].parse::<f64>()?;
+            if denominator == 0.0 { 0 } else { (numerator / denominator).round() as u32 }
         } else {
-            return Err(anyhow::anyhow!("failed to parse fps"));
+            return Err(anyhow::anyhow!("failed to parse fps from '{}'", fps));
         };
 
         self.fps = Some(fps);

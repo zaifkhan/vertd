@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use log::warn;
+use std::env;
 use std::fmt::{self, Display, Formatter};
 use tokio::process::Command;
 use wgpu::Instance;
@@ -96,6 +97,17 @@ async fn is_docker() -> bool {
 }
 
 pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
+    // Allow overriding GPU detection via an environment variable
+    if let Ok(vendor) = env::var("VERTD_GPU_VENDOR") {
+        match vendor.to_lowercase().as_str() {
+            "amd" => return Ok(ConverterGPU::AMD),
+            "intel" => return Ok(ConverterGPU::Intel),
+            "nvidia" => return Ok(ConverterGPU::NVIDIA),
+            "apple" => return Ok(ConverterGPU::Apple),
+            _ => warn!("Invalid value for VERTD_GPU_VENDOR: '{}'. Ignoring.", vendor),
+        }
+    }
+    
     let instance = Instance::default();
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
@@ -124,6 +136,9 @@ pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
             warn!("this usually is because you're running Docker under WSL or because");
             warn!("you are not passing the GPU device correctly.");
             warn!("");
+            warn!("vertd will assume you have a NVIDIA GPU. If this fails, you can force a vendor");
+            warn!("by setting the 'VERTD_GPU_VENDOR' env var to 'amd', 'intel', or 'nvidia'.");
+            warn!("");
             warn!("if this doesn't seem right, make sure to provide the following info when");
             warn!("asking for help:");
             warn!("- adapter name: {}", info.name);
@@ -133,9 +148,6 @@ pub async fn get_gpu() -> anyhow::Result<ConverterGPU> {
             warn!("- device type: {:#?}", info.device_type);
             warn!("- driver: {}", info.driver);
             warn!("- driver info: {}", info.driver_info);
-            warn!("");
-            warn!("vertd will assume you have a NVIDIA GPU. if this isn't the case,");
-            warn!("conversions will likely fail.");
             warn!("*******");
 
             Ok(ConverterGPU::NVIDIA)

@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
+use std::env;
 
 use actix_web::{get, rt, web, Error, HttpRequest, HttpResponse};
 use actix_ws::AggregatedMessage;
 use discord_webhook2::{message, webhook::DiscordWebhook};
 use futures_util::StreamExt as _;
-use log::error;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use uuid::Uuid;
@@ -229,8 +230,16 @@ async fn handle_job_failure(
     to: String,
     logs: String,
 ) -> anyhow::Result<()> {
-    let client_url = std::env::var("WEBHOOK_URL")?;
-    let mentions = std::env::var("WEBHOOK_PINGS").unwrap_or_else(|_| "".to_string());
+    // Check for the webhook URL. If it's not set or empty, just warn and exit gracefully.
+    let client_url = match env::var("WEBHOOK_URL") {
+        Ok(url) if !url.is_empty() => url,
+        _ => {
+            warn!("WEBHOOK_URL not set. Skipping failure notification.");
+            return Ok(());
+        }
+    };
+    
+    let mentions = env::var("WEBHOOK_PINGS").unwrap_or_else(|_| "".to_string());
 
     let mut files = BTreeMap::new();
     files.insert(format!("{}.log", job_id), logs.as_bytes().to_vec());

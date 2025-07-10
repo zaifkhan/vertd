@@ -1,4 +1,5 @@
 use super::{gpu::ConverterGPU, speed::ConversionSpeed};
+use log::info;
 use strum_macros::{Display, EnumString};
 
 #[derive(Clone, Copy, Debug, PartialEq, EnumString, Display)]
@@ -68,23 +69,34 @@ impl Conversion {
                 let encoder = self
                     .accelerated_or_default_codec(gpu, &["h264"], "libx264")
                     .await;
-                vec![
+
+                let mut opts = vec![
                     "-c:v".to_string(),
-                    encoder,
+                    encoder.clone(), // Clone to check its name below
                     "-c:a".to_string(),
                     "aac".to_string(),
                     "-strict".to_string(),
                     "experimental".to_string(),
-                ]
+                ];
+
+                // UNIVERSAL FIX: If we're using any hardware encoder for these common containers,
+                // force the output pixel format to the universally compatible yuv420p.
+                // This prevents the green/pink hue artifact on all affected formats.
+                if encoder.contains("vaapi") || encoder.contains("nvenc") || encoder.contains("qsv") {
+                    info!("Hardware H.264 encode detected. Applying yuv420p pixel format compatibility fix.");
+                    opts.extend(vec!["-pix_fmt".to_string(), "yuv420p".to_string()]);
+                }
+
+                opts
             }
 
             ConverterFormat::GIF => {
                 vec![
-                   "-filter_complex".to_string(), 
-                   format!(
-                    "fps={},scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
-                    fps.min(24)
-                   )
+                    "-filter_complex".to_string(),
+                    format!(
+                     "fps={},scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=bayer",
+                     fps.min(24)
+                    ),
                 ]
             }
 
@@ -110,12 +122,17 @@ impl Conversion {
                     "libvorbis".to_string(),
                 ]
             }
-            ConverterFormat::AVI => vec![
-                "-c:v".to_string(),
-                "mpeg4".to_string(),
-                "-c:a".to_string(),
-                "libmp3lame".to_string(),
-            ],
+            ConverterFormat::AVI => {
+                let encoder = self
+                    .accelerated_or_default_codec(gpu, &["mpeg4"], "mpeg4")
+                    .await;
+                vec![
+                    "-c:v".to_string(),
+                    encoder,
+                    "-c:a".to_string(),
+                    "libmp3lame".to_string(),
+                ]
+            }
         };
 
         let conversion_opts = conversion_opts
