@@ -43,6 +43,13 @@ async fn ffutil_version(util: FFUtil) -> anyhow::Result<String> {
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("vertd")).init();
+
+    // Read the shared secret token from the environment.
+    // The server will panic and exit if it's not set.
+    let auth_token = std::env::var("VERTD_AUTH_TOKEN")
+        .expect("FATAL: VERTD_AUTH_TOKEN environment variable must be set for security.");
+    info!("VERTD_AUTH_TOKEN is set. Server will require authentication on API endpoints.");
+    
     info!("starting vertd");
     let ffmpeg_version = match ffutil_version(FFUtil::FFmpeg).await {
         Ok(version) => version,
@@ -71,7 +78,6 @@ async fn main() -> anyhow::Result<()> {
         Ok(gpu) => info!(
             "detected a{} {} GPU -- if this isn't your vendor, open an issue.",
             match gpu {
-                converter::gpu::ConverterGPU::AMD => "n",
                 converter::gpu::ConverterGPU::Apple => "n",
                 _ => "",
             },
@@ -91,6 +97,6 @@ async fn main() -> anyhow::Result<()> {
     fs::create_dir("input").await?;
     fs::create_dir("output").await?;
 
-    start_http().await?;
+    start_http(auth_token).await?;
     Ok(())
 }
